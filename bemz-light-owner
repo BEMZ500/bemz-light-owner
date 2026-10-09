@@ -1,1 +1,137 @@
 
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BEMZ LIGHT OWNER</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#090611;color:white;font-family:Arial,sans-serif}
+.card{width:100%;max-width:390px;padding:26px;background:#151025;border:1px solid #7041a5;border-radius:20px;box-shadow:0 0 30px #8b5cf633}
+.logo{text-align:center;color:#c084fc;font-size:30px;font-weight:bold}
+h2{text-align:center;margin-bottom:8px}
+p{text-align:center;color:#b8a9ce;font-size:13px}
+label{display:block;margin:17px 0 7px;font-size:13px}
+input{width:100%;padding:13px;border-radius:10px;border:1px solid #493260;background:#090611;color:white}
+button{width:100%;padding:13px;margin-top:18px;border:0;border-radius:10px;background:linear-gradient(90deg,#9333ea,#6366f1);color:white;font-weight:bold}
+#message{font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+#dashboard{display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">BEMZ LIGHT</div>
+  <p>OWNER CONTROL PANEL</p>
+
+  <section id="login">
+    <h2>Login Owner</h2>
+    <form id="loginForm">
+      <label>Username</label>
+      <input id="username" autocomplete="username" required>
+      <label>Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button id="loginButton">MASUK</button>
+    </form>
+  </section>
+
+  <section id="dashboard">
+    <h2>👑 Dashboard Owner</h2>
+    <p id="account"></p>
+    <p>Akun Owner berhasil diverifikasi.</p>
+    <button id="logout">KELUAR</button>
+  </section>
+  <p id="message" role="status"></p>
+</div>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}
+from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import {getFirestore,doc,getDoc}
+from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCvQN_GiAFWCgDv2OINBo1Z8wWYmcEWfsQ",
+  authDomain: "bemz-owner-light.firebaseapp.com",
+  databaseURL: "https://bemz-owner-light-default-rtdb.firebaseio.com",
+  projectId: "bemz-owner-light",
+  storageBucket: "bemz-owner-light.firebasestorage.app",
+  messagingSenderId: "445541107088",
+  appId: "1:445541107088:web:f46856220923e32fe41f15",
+  measurementId: "G-XDHDSHGWQD"
+};
+
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getFirestore(app);
+const login=document.getElementById("login");
+const dashboard=document.getElementById("dashboard");
+const message=document.getElementById("message");
+const form=document.getElementById("loginForm");
+const loginButton=document.getElementById("loginButton");
+
+function showMessage(text){message.textContent=text}
+async function verifyOwner(user){
+  const snap=await getDoc(doc(db,"users",user.uid));
+  if(!snap.exists() || snap.data().role!=="owner"){
+    await signOut(auth);
+    login.style.display="block";
+    dashboard.style.display="none";
+    showMessage("Akun login, tetapi role Owner tidak cocok. Periksa users/{UID}.");
+    return false;
+  }
+  login.style.display="none";
+  dashboard.style.display="block";
+  document.getElementById("account").textContent=user.email;
+  showMessage("");
+  return true;
+}
+
+form.addEventListener("submit",async e=>{
+  e.preventDefault();
+  loginButton.disabled=true;
+  loginButton.textContent="MEMERIKSA...";
+  showMessage("");
+  try{
+    const username=document.getElementById("username").value.trim();
+    const password=document.getElementById("password").value;
+    if(!/^[a-zA-Z0-9._-]{3,30}$/.test(username)){
+      throw new Error("Format username tidak valid.");
+    }
+    const email=username.toLowerCase()+"@owner.bemzlight.app";
+    const result=await signInWithEmailAndPassword(auth,email,password);
+    await verifyOwner(result.user);
+  }catch(err){
+    const code=err.code||"";
+    if(code==="auth/invalid-credential" || code==="auth/wrong-password" || code==="auth/user-not-found"){
+      showMessage("Username atau password salah. Periksa email akun di Firebase Authentication.");
+    }else if(code==="permission-denied"){
+      showMessage("Firestore menolak akses. Periksa Firestore Security Rules.");
+    }else if(code==="auth/operation-not-allowed"){
+      showMessage("Aktifkan metode Email/Password di Firebase Authentication.");
+    }else{
+      showMessage("Login gagal: "+(err.message||"Periksa koneksi internet."));
+    }
+  }finally{
+    loginButton.disabled=false;
+    loginButton.textContent="MASUK";
+  }
+});
+
+document.getElementById("logout").addEventListener("click",async()=>{
+  await signOut(auth);
+  dashboard.style.display="none";
+  login.style.display="block";
+  showMessage("Kamu sudah keluar.");
+});
+
+onAuthStateChanged(auth,async user=>{
+  if(!user)return;
+  try{await verifyOwner(user)}
+  catch(err){showMessage("Gagal memeriksa akses Firestore. Periksa Security Rules dan koneksi.")}
+});
+</script>
+</body>
+</html>
+
